@@ -1,3 +1,6 @@
 Mode d'emploi : aller dans le fichier bot.py, et insérer le token de votre bot entre les guillemets de la variable bot_token.
 
-IMPORTANT : Veuillez activer les options "PRESENCE INTENT" et "SERVER MEMBERS INTENT" de la catégorie "Privileged Gateway Intents" pour que le fonctionnement soit optimal.
+IMPORTANT : Veuillez activer les options "PRESENCE INTENT" et "SERVER MEMBERS INTENT" de la catégorie "Privileged Gateway Intents" pour que le fonctionnement
+soit optimal.
+
+Pour toute question, suggestion, problème, me contacter à lcram33@pm.me.
