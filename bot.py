@@ -11,9 +11,10 @@ from os.path import isfile, join, exists
 import json
 import aiohttp
 
-bot_token = "REMPLACER PAR LE TOKEN DE VOTRE BOT"
+with open("config.json", 'r') as f:
+    config = json.load(f)
 
-bot = commands.AutoShardedBot(command_prefix=commands.when_mentioned_or('>'), intents=discord.Intents.all())
+bot = commands.AutoShardedBot(command_prefix=commands.when_mentioned_or(config["prefix"]), intents=discord.Intents.all())
 bot.remove_command('help')
 last_ping = None
 
@@ -119,12 +120,12 @@ def format_code(code: str):
 
 
 def hide_sensitive_content(text: str):
-    global bot_token
+    sensitive_data = [config["token"]]
 
-    sensitive_data = [bot_token]
     for data in sensitive_data:
         random_int = random.randint(1, 10)
         text = text.replace(data, "█" * (len(data) + random_int))
+    
     return text
 
 
@@ -179,7 +180,7 @@ async def clean_guild(guild: discord.guild):
                 pass
 
 
-async def load_backup(file_path: str, guild: discord.guild, action_reason: str = None):
+async def load_backup(file_path: str, guild: discord.guild, author, action_reason: str = None):
     with open(file_path, "r", encoding='utf8') as f:
         g = json.load(f)
 
@@ -415,7 +416,7 @@ async def load_backup(file_path: str, guild: discord.guild, action_reason: str =
         except Exception:
             pass
 
-        await guild.edit(name=g["name"], region=discord.VoiceRegion(g["region"]),
+        await guild.edit(name=g["name"],
                          afk_channel=[x for x in guild.voice_channels if x.name == g["afk_channel"]][0] if g[
                              "afk_channel"] else None, afk_timeout=g["afk_timeout"],
                          verification_level=discord.VerificationLevel(g["verification_level"]),
@@ -429,11 +430,6 @@ async def load_backup(file_path: str, guild: discord.guild, action_reason: str =
             await guild.edit(icon=guild_icon, reason=action_reason)
         except Exception:
             pass
-
-        embed = discord.Embed(title="✅ Voilà !",
-                              description="Votre sauvegarde a été chargée, à l'exception des emojis qui vont être prochainement importés.\nCette opération peut être longue et incomplète.\nDésolé si cela est le cas.",
-                              color=0x008040)
-        await guild.text_channels[0].send(content="@here", embed=embed)
 
         backup_emojis = [emoji["name"] for emoji in g["emojis"]]
         for emoji in guild.emojis:
@@ -453,20 +449,31 @@ async def load_backup(file_path: str, guild: discord.guild, action_reason: str =
                 await guild.create_custom_emoji(name=emoji["name"], image=img, reason=action_reason)
             except Exception:
                 pass
+        
+        embed = discord.Embed(title="\U00002705 Voilà !",
+                              description="Votre sauvegarde a bien été chargée.",
+                              color=0x008040)
+
+        if g["mfa_level"] == 1:
+            embed.add_field(name=":warning: Authentification à deux facteurs", value="L'authentification à deux facteurs (2FA) était activé sur le serveur sauvegardé, ce paramètre n'a pas pu être restauré.")
+
+        if len(guild.text_channels) > 0:
+            await guild.text_channels[0].send(content=author.mention, embed=embed)
+        else:
+            await author.send(content=author.mention, embed=embed)
 
 
 async def create_backup(file_path: str, guild: discord.Guild):
     saved_guild = {
         "name": guild.name,
-        "region": str(guild.region),
         "afk_timeout": guild.afk_timeout,
         "afk_channel": guild.afk_channel.name if guild.afk_channel else None,
         "system_channel": guild.system_channel.name if guild.system_channel else None,
         "icon": str(guild.icon_url_as(static_format='jpg', format='jpg', size=4096)),
-        "verification_level": ["none", "low", "medium", "high", "extreme"].index(
-            str(guild.verification_level)),
+        "verification_level": ["none", "low", "medium", "high", "extreme"].index(str(guild.verification_level)),
         "default_notifications": "only_mentions" if guild.default_notifications == discord.NotificationLevel.only_mentions else "all_messages",
         "explicit_content_filter": ["disabled", "no_role", "all_members"].index(str(guild.explicit_content_filter)),
+        "mfa_level": guild.mfa_level,
         "roles": [],
         "categories": [],
         "text_channels": [],
@@ -596,7 +603,7 @@ async def create_backup(file_path: str, guild: discord.Guild):
 
 async def update_status():
     await bot.change_presence(
-        activity=discord.Streaming(name=f">help | Backup bot by Lcram33 | Sur {str(len(bot.guilds))} serveurs",
+        activity=discord.Streaming(name=f">help | Backup bot | Sur {str(len(bot.guilds))} serveurs",
                                    url="https://www.twitch.tv/lcram33"), status=discord.Status.online)
 
 
@@ -615,7 +622,7 @@ async def on_command_error(ctx, error):
             ctx.command.reset_cooldown(ctx)
             await bot.process_commands(ctx.message)
         else:
-            await ctx.message.add_reaction("⏰")
+            await ctx.message.add_reaction("\U000023F0")
     elif isinstance(error, commands.MissingRequiredArgument):
         embed = discord.Embed(title=":x: **Il manque le paramètre `{}`.**".format(error.param.name), color=0xff0000)
         return await ctx.send(embed=embed)
@@ -727,24 +734,24 @@ async def health(ctx):
 
     b_role = discord.utils.get(ctx.message.guild.roles, name=bot.user.name)
     if b_role is None:
-        bot_info += "❌ Le rôle du bot n'a pas été trouvé, veuillez le renommer en `{}`.\n".format(
+        bot_info += ":x: Le rôle du bot n'a pas été trouvé, veuillez le renommer en `{}`.\n".format(
             bot.user.name)
     else:
-        bot_info += "✅ Le rôle du bot a bien été trouvé\n"
+        bot_info += "\U00002705 Le rôle du bot a bien été trouvé\n"
 
     if not ctx.message.guild.me.guild_permissions.administrator:
-        bot_info += "❌ Le bot ne possède pas la permission administrateur. Veuillez lui accorder, ou toutes les permissions.\n"
+        bot_info += ":x: Le bot ne possède pas la permission administrateur. Veuillez lui accorder, ou toutes les permissions.\n"
     else:
-        bot_info += "✅ Permission `Administrateur` accordée au bot\n"
+        bot_info += "\U00002705 Permission `Administrateur` accordée au bot\n"
 
     pob = "unknown"
     if b_role is not None:
-        pob = "✅ Le rôle du bot est le plus haut"
+        pob = "\U00002705 Le rôle du bot est le plus haut"
         if b_role.position != len(ctx.message.guild.roles) - 1:
             pob = ":negative_squared_cross_mark: Le rôle du bot n'est pas le plus haut"
         for r in ctx.message.guild.roles:
             if r.position > b_role.position and r.managed:
-                pob = "⚠️ Le rôle du bot est en-dessous du rôle d'un autre bot, si un bot malveillant à un rôle au dessus de GuildEdit ce dernier ne pourra rien faire..."
+                pob = ":warning: Le rôle du bot est en-dessous du rôle d'un autre bot, si un bot malveillant à un rôle au dessus de GuildEdit ce dernier ne pourra rien faire..."
                 break
     bot_info += pob + "\n"
 
@@ -755,16 +762,16 @@ async def health(ctx):
         if r.mentionable:
             roles_m += r.mention + " "
     if len(roles_m) == 0:
-        guild_info = "✅ Aucun rôle mentionnable\n"
+        guild_info = "\U00002705 Aucun rôle mentionnable\n"
     else:
-        guild_info = "⚠️ Rôles mentionnables : {}\n".format(roles_m)
+        guild_info = ":warning: Rôles mentionnables : {}\n".format(roles_m)
 
     roles_a = ""
     for r in ctx.guild.roles:
         if r.permissions.administrator and r.name != bot.user.name:
             roles_a += r.mention + " "
     if len(roles_a) == 0:
-        guild_info += "✅ Aucun rôle ne possédant la permission administrateur\n"
+        guild_info += "\U00002705 Aucun rôle ne possédant la permission administrateur\n"
     else:
         guild_info += "❓ Rôles possédant la permission administrateur : {}\n".format(roles_a)
 
@@ -773,32 +780,30 @@ async def health(ctx):
         if r.permissions.mention_everyone:
             roles_me += r.mention + " "
     if len(roles_me) == 0:
-        guild_info += "✅ Aucun rôle ne possédant la permission de mentionner everyone\n"
+        guild_info += "\U00002705 Aucun rôle ne possédant la permission de mentionner everyone\n"
     else:
-        guild_info += "❓ Rôles possédant la permission de mentionner everyone : {}\n".format(roles_me)
+        guild_info += ":question: Rôles possédant la permission de mentionner everyone : {}\n".format(roles_me)
 
     roles_stm = ""
     for r in ctx.guild.roles:
         if r.permissions.send_tts_messages:
             roles_stm += r.mention + " "
     if len(roles_stm) == 0:
-        guild_info += "✅ Aucun rôle ne possédant la permission d'envoyer des messages tts\n"
+        guild_info += "\U00002705 Aucun rôle ne possédant la permission d'envoyer des messages tts\n"
     else:
-        guild_info += "❓ Rôles possédant la permission d'envoyer des messages tts : {}\n".format(roles_stm)
+        guild_info += ":question: Rôles possédant la permission d'envoyer des messages tts : {}\n".format(roles_stm)
 
     if str(ctx.guild.verification_level) in ["medium", "high", "extreme"]:
-        guild_info += "✅ Niveau de vérification du serveur correct"
+        guild_info += "\U00002705 Niveau de vérification du serveur correct"
     elif str(ctx.guild.verification_level) == "low":
         guild_info += ":negative_squared_cross_mark: Niveau de vérification du serveur légèrement faible, il est conseillé de l'augmenter d'un niveau"
     else:
-        guild_info += "⚠️ Niveau de vérification du serveur trop faible."
+        guild_info += ":warning: Niveau de vérification du serveur trop faible."
 
     embed = discord.Embed(title="💊 Diagnostic", description="Informations quant aux problèmes éventuels.",
                           color=0x36393f)
     embed.add_field(name="Problèmes liés au bot", value=bot_info, inline=False)
     embed.add_field(name="Problèmes de sécurité du serveur", value=guild_info, inline=False)
-    embed.set_footer(
-        text="✅ : Aucun problème détecté\n⚠️ Avertissement\n❎ Problème mineur (ne gêne pas une utilisation normale du bot)\n❌ Erreur critique")
     await ctx.send(embed=embed)
 
 
@@ -806,8 +811,6 @@ async def health(ctx):
 @commands.cooldown(1, 5 * 60, type=commands.BucketType.user)
 async def help(ctx):
     embed = discord.Embed(title="Commandes", description="""
-__Catégorie : Backup__
-
 **>health**, cooldown : 3 en 10min/serveur.
 **>createbackup**, permissions : Administrateur, cooldown : 3min/serveur.
 **>updatebackup (nom)**, permissions : Administrateur, cooldown : 3min/serveur.
@@ -829,11 +832,11 @@ __Catégorie : Backup__
 **>loadsettings (nom)** : Charge les paramètres de la sauvegarde indiquée. Permissions : Administrateur. Cooldown : 5min/serveur.
 **>loadmembers (nom)** : Charge les pseudos et rôles des membres de la sauvegarde indiquée. Permissions : Administrateur. Cooldown : 5min/serveur.
         """, color=0x36393f)
-    embed.set_footer(text="Remarque : si une commande est en cooldown, le bot réagira à votre message avec ⏰")
+    embed.set_footer(text="Remarque : si une commande est en cooldown, le bot réagira à votre message avec un réveil.")
 
     try:
         await ctx.author.send(embed=embed)
-        await ctx.message.add_reaction(emoji="📩")
+        await ctx.message.add_reaction(emoji="\U0001F4E9")
     except Exception as e:
         await ctx.send(
             ":x: **Impossible de vous envoyer un mp. Les avez-vous activés ?**\n{}".format(ctx.author.mention))
@@ -848,44 +851,39 @@ async def ping(ctx):
     old_ping = last_ping
     last_ping = new_ping
 
-    embed = discord.Embed(title=":ping_pong: **Pong ! `{}` ms**".format(str(new_ping)), color=0x36393f)
+    embed = discord.Embed(title=":ping_pong: **Pong !**", color=0x36393f)
+    embed.add_field(name=f":signal_strength:", value=f"`{new_ping}` ms", inline=True)
+
     if old_ping is not None:
         percent = round(100 - 100 * old_ping / new_ping, 2)
         if percent < 0:
-            percent = "↘️" + str(percent) + "%"
+            percent = ":arrow_lower_right: " + str(percent) + "%"
         elif percent == 0:
-            percent = "🔄" + str(percent) + "%"
+            percent = ":arrows_counterclockwise: " + str(percent) + "%"
         else:
-            percent = "🔼+" + str(percent) + "%"
-        embed.set_footer(text="Ping précédent : {} ms {}".format(str(old_ping), percent))
-    response = await ctx.send(embed=embed)
-
-    try:
-        await ctx.message.delete()
-    except Exception:
-        pass
-
-    await asyncio.sleep(6)
-    await response.delete()
+            percent = ":arrow_upper_right: " + str(percent) + "%"
+        embed.add_field(name=":track_previous:", value=f"{old_ping} ms {percent}", inline=False)
+    
+    await ctx.send(embed=embed)
 
 
 @bot.command()
 async def updatestatus(ctx):
     await update_status()
-    await ctx.message.add_reaction(emoji='✅')
+    await ctx.message.add_reaction(emoji='\U00002705')
 
 
 @bot.command()
 async def stop(ctx):
-    embed_confirmation = discord.Embed(title="🛑 Confirmation de l'arrêt", description="Stopper le bot ?",
+    embed_confirmation = discord.Embed(title=":warning: Confirmation de l'arrêt", description="Stopper le bot ?",
                                        color=0xff0000)
     embed_confirmation.add_field(name="Annulation", value="Ne faîtes rien, la commande s'annulera dans 30s.",
                                  inline=False)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) == '✅'
+        return user == ctx.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1294,17 +1292,17 @@ async def backupinfos(ctx, backup_name):
                         str(len(g["members"]))),
                     inline=True)
     embed.add_field(name="Paramètres", value="""
-Région : `{}`
 AFK : `{} ({})`
 System channel : `{}`
 Niveau de vérification : `{}`
 Notifications : `{}`
 Filtre de contenu explicit : `{}`
-    """.format(g["region"], g["afk_channel"],
+2FA pour les modérateurs : `{}`
+    """.format(g["afk_channel"],
                str(int(g["afk_timeout"] / 60)) + "min" if g["afk_timeout"] != 3600 else "1h", g["system_channel"],
                verification_level[g["verification_level"]],
                "Tous les messages" if g["default_notifications"] == "all_messages" else "@mentions seulement",
-               explicit_content_filter[g["explicit_content_filter"]]), inline=True)
+               explicit_content_filter[g["explicit_content_filter"]], ['Désactivé', 'Activé'][g["mfa_level"]]), inline=True)
     await ctx.send(embed=embed)
 
 
@@ -1351,10 +1349,10 @@ async def loadbackup(ctx, backup_name):
                                        description="Vous êtes sur le point de recréer le serveur de cette sauvegarde, **{}**, sur celui-ci.\nLe serveur actuel sera écrasé. Cette action définitive.\nÊtes vous sûr ?".format(
                                            g["name"]), color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.message.author and str(reaction.emoji) == '✅'
+        return user == ctx.message.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1364,7 +1362,7 @@ async def loadbackup(ctx, backup_name):
 
     try:
         await clean_guild(ctx.guild)
-        await load_backup(join(path, backup_name + ".json"), ctx.guild, "Chargement d'une sauvegarde")
+        await load_backup(join(path, backup_name + ".json"), ctx.guild, ctx.author, "Chargement d'une sauvegarde")
     except Exception as e:
         await ctx.author.send(embed=embed_error(str(e)))
         return
@@ -1394,10 +1392,10 @@ async def loadsettings(ctx, backup_name):
                                        description="Vous êtes sur le point de charger les paramètres de cette sauvegarde (serveur : **{}**) sur ce serveur.\nLes paramètres du serveur actuel seront écrasé. Cette action est définitive.\nÊtes vous sûr ?".format(
                                            g["name"]), color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.message.author and str(reaction.emoji) == '✅'
+        return user == ctx.message.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1417,7 +1415,6 @@ async def loadsettings(ctx, backup_name):
 
         await ctx.guild.edit(name=g["name"],
                              icon=guild_icon,
-                             region=discord.VoiceRegion(g["region"]),
                              afk_channel=[x for x in ctx.guild.voice_channels if x.name == g["afk_channel"]][0] if g[
                                  "afk_channel"] else None,
                              afk_timeout=g["afk_timeout"],
@@ -1432,7 +1429,7 @@ async def loadsettings(ctx, backup_name):
         await ctx.send(embed=embed_error(str(e)))
         return
 
-    embed = discord.Embed(title="✅ Voilà !", description="Les paramètres ont été importés avec succès.",
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Les paramètres ont été importés avec succès.",
                           color=0x008040)
     await ctx.send(embed=embed)
 
@@ -1480,10 +1477,10 @@ async def loadroles(ctx, backup_name):
                                        description="Vous êtes sur le point de charger les rôles de cette sauvegarde (serveur : **{}**) sur ce serveur.\nLes rôles du serveur actuel seront écrasé. Cette action est définitive.\nÊtes vous sûr ?".format(
                                            g["name"]), color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.message.author and str(reaction.emoji) == '✅'
+        return user == ctx.message.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1513,7 +1510,7 @@ async def loadroles(ctx, backup_name):
         await ctx.send(embed=embed_error(str(e)))
         return
 
-    embed = discord.Embed(title="✅ Voilà !", description="Les rôles ont été importés avec succès.", color=0x008040)
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Les rôles ont été importés avec succès.", color=0x008040)
     await confirm.clear_reactions()
     await confirm.edit(embed=embed)
 
@@ -1542,10 +1539,10 @@ async def loadchannels(ctx, backup_name):
                                        description="Vous êtes sur le point de charger les salons de cette sauvegarde (serveur : **{}**) sur ce serveur.\nLes salons du serveur actuel seront écrasé. Cette action est définitive.\nÊtes vous sûr ?".format(
                                            g["name"]), color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.message.author and str(reaction.emoji) == '✅'
+        return user == ctx.message.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1600,7 +1597,7 @@ async def loadchannels(ctx, backup_name):
         await ctx.message.author.send(embed=embed_error(str(e)))
         return
 
-    embed = discord.Embed(title="✅ Voilà !", description="Les salons ont été importés avec succès.", color=0x008040)
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Les salons ont été importés avec succès.", color=0x008040)
     await ctx.guild.text_channels[0].send(content=ctx.message.author.mention, embed=embed)
 
 
@@ -1628,10 +1625,10 @@ async def loadbans(ctx, backup_name):
                                        description="Vous êtes sur le point de charger les bannissements de cette sauvegarde (serveur : **{}**) sur ce serveur.\nLes bannissements du serveur actuel seront écrasé. Cette action est définitive.\nÊtes vous sûr ?".format(
                                            g["name"]), color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.message.author and str(reaction.emoji) == '✅'
+        return user == ctx.message.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1669,7 +1666,7 @@ async def loadbans(ctx, backup_name):
         await ctx.send(embed=embed_error(str(e)))
         return
 
-    embed = discord.Embed(title="✅ Voilà !", description="Les bannissements ont été importés avec succès.",
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Les bannissements ont été importés avec succès.",
                           color=0x008040)
     await confirm.clear_reactions()
     await confirm.edit(embed=embed)
@@ -1699,10 +1696,10 @@ async def loadmembers(ctx, backup_name):
                                        description="Vous êtes sur le point de charger les membres de cette sauvegarde (serveur : **{}**) sur ce serveur.\nLes rôles et pseudos des membres actuels du serveur seront écrasé. Cette action est définitive.\nÊtes vous sûr ?".format(
                                            g["name"]), color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.message.author and str(reaction.emoji) == '✅'
+        return user == ctx.message.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1732,7 +1729,7 @@ async def loadmembers(ctx, backup_name):
                     pass
 
 
-    embed = discord.Embed(title="✅ Voilà !", description="Les membres ont été importés avec succès.", color=0x008040)
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Les membres ont été importés avec succès.", color=0x008040)
     await confirm.clear_reactions()
     await confirm.edit(embed=embed)
 
@@ -1761,10 +1758,10 @@ async def loademojis(ctx, backup_name):
                                        description="Vous êtes sur le point de charger les emojis de cette sauvegarde (serveur : **{}**) sur ce serveur.\nLes emojis du serveur actuel seront écrasé. Cette action est définitive.\nÊtes vous sûr ?".format(
                                            g["name"]), color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.message.author and str(reaction.emoji) == '✅'
+        return user == ctx.message.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1796,7 +1793,7 @@ async def loademojis(ctx, backup_name):
         await ctx.send(embed=embed_error(str(e)))
         return
 
-    embed = discord.Embed(title="✅ Voilà !", description="Les emojis ont été importés avec succès.", color=0x008040)
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Les emojis ont été importés avec succès.", color=0x008040)
     await confirm.clear_reactions()
     await confirm.edit(embed=embed)
 
@@ -1818,10 +1815,10 @@ async def createbackup(ctx):
     embed_confirmation = discord.Embed(title=":inbox_tray::package: Créer une sauvegarde ?",
                                        color=0xff8000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) == '✅'
+        return user == ctx.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1836,7 +1833,7 @@ async def createbackup(ctx):
         return
 
     await confirm.clear_reactions()
-    embed = discord.Embed(title="✅ Voilà !", description="Votre sauvegarde a été créée avec succès.",
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Votre sauvegarde a été créée avec succès.",
                           color=0x008040)
     await confirm.edit(embed=embed)
 
@@ -1863,10 +1860,10 @@ async def updatebackup(ctx, backup_name):
                                        description="Attention, cette sauvegarde sera écrasée. Une nouvelle sauvegarde va remplacer celle-ci.\nÊtes-vous sûr ?",
                                        color=0xff8000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) == '✅'
+        return user == ctx.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1881,7 +1878,7 @@ async def updatebackup(ctx, backup_name):
         return
 
     await confirm.clear_reactions()
-    embed = discord.Embed(title="✅ Voilà !", description="Votre sauvegarde a été mise à jour avec succès.",
+    embed = discord.Embed(title="\U00002705 Voilà !", description="Votre sauvegarde a été mise à jour avec succès.",
                           color=0x008040)
     await confirm.edit(embed=embed)
 
@@ -1937,10 +1934,10 @@ async def renamebackup(ctx, backup_name, new_name):
                                                                                                          new_name),
                                        color=0xff8000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) == '✅'
+        return user == ctx.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1955,7 +1952,7 @@ async def renamebackup(ctx, backup_name, new_name):
     except Exception:
         pass
 
-    embed = discord.Embed(title="✅ Succès.", description="Votre sauvegarde a bien été renommée.", color=0x008040)
+    embed = discord.Embed(title="\U00002705 Succès.", description="Votre sauvegarde a bien été renommée.", color=0x008040)
     await confirm.edit(embed=embed)
 
 
@@ -1976,10 +1973,10 @@ async def deletebackup(ctx, backup_name):
                                            backup_name),
                                        color=0xff0000)
     confirm = await ctx.send(embed=embed_confirmation)
-    await confirm.add_reaction(emoji='✅')
+    await confirm.add_reaction(emoji='\U00002705')
 
     def check(reaction, user):
-        return user == ctx.author and str(reaction.emoji) == '✅'
+        return user == ctx.author and str(reaction.emoji) == '\U00002705'
 
     try:
         reaction, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -1994,8 +1991,8 @@ async def deletebackup(ctx, backup_name):
     except Exception:
         pass
 
-    embed = discord.Embed(title="✅ Succès.", description="Votre sauvegarde a bien été supprimée.", color=0x008040)
+    embed = discord.Embed(title="\U00002705 Succès.", description="Votre sauvegarde a bien été supprimée.", color=0x008040)
     await confirm.edit(embed=embed)
 
 
-bot.run(bot_token, bot=True, reconnect=True)
+bot.run(config["token"], bot=True, reconnect=True)
