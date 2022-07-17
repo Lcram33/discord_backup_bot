@@ -1,4 +1,4 @@
-Mode d'emploi : aller dans le fichier bot.py, et insérer le token de votre bot entre les guillemets de la variable bot_token.
+Mode d'emploi : renommer (ou copier) config.example.json en config.json, puis insérer votre token et changez le préfix (optionnel).
 
 IMPORTANT : Veuillez activer les options "PRESENCE INTENT" et "SERVER MEMBERS INTENT" de la catégorie "Privileged Gateway Intents" pour que le fonctionnement
 soit optimal.
