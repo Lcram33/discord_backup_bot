@@ -734,8 +734,7 @@ async def health(ctx):
 
     b_role = discord.utils.get(ctx.message.guild.roles, name=bot.user.name)
     if b_role is None:
-        bot_info += ":x: Le rôle du bot n'a pas été trouvé, veuillez le renommer en `{}`.\n".format(
-            bot.user.name)
+        bot_info += f":x: Le rôle du bot n'a pas été trouvé, veuillez le renommer en `{bot.user.name}`.\n"
     else:
         bot_info += "\U00002705 Le rôle du bot a bien été trouvé\n"
 
@@ -749,10 +748,7 @@ async def health(ctx):
         pob = "\U00002705 Le rôle du bot est le plus haut"
         if b_role.position != len(ctx.message.guild.roles) - 1:
             pob = ":negative_squared_cross_mark: Le rôle du bot n'est pas le plus haut"
-        for r in ctx.message.guild.roles:
-            if r.position > b_role.position and r.managed:
-                pob = ":warning: Le rôle du bot est en-dessous du rôle d'un autre bot, si un bot malveillant à un rôle au dessus de GuildEdit ce dernier ne pourra rien faire..."
-                break
+
     bot_info += pob + "\n"
 
     guild_info = ""
@@ -773,7 +769,7 @@ async def health(ctx):
     if len(roles_a) == 0:
         guild_info += "\U00002705 Aucun rôle ne possédant la permission administrateur\n"
     else:
-        guild_info += "❓ Rôles possédant la permission administrateur : {}\n".format(roles_a)
+        guild_info += ":question: Rôles possédant la permission administrateur : {}\n".format(roles_a)
 
     roles_me = ""
     for r in ctx.guild.roles:
@@ -800,7 +796,7 @@ async def health(ctx):
     else:
         guild_info += ":warning: Niveau de vérification du serveur trop faible."
 
-    embed = discord.Embed(title="💊 Diagnostic", description="Informations quant aux problèmes éventuels.",
+    embed = discord.Embed(title=":pill: Diagnostic", description="Informations quant aux problèmes éventuels.",
                           color=0x36393f)
     embed.add_field(name="Problèmes liés au bot", value=bot_info, inline=False)
     embed.add_field(name="Problèmes de sécurité du serveur", value=guild_info, inline=False)
@@ -814,16 +810,16 @@ async def help(ctx):
 **>health**, cooldown : 3 en 10min/serveur.
 **>createbackup**, permissions : Administrateur, cooldown : 3min/serveur.
 **>updatebackup (nom)**, permissions : Administrateur, cooldown : 3min/serveur.
-**>backuplist**, cooldown : 2min/user.
-**>backupinfos (nom)**, cooldown : 2min/user.
+**>listbackup**, cooldown : 2min/user.
+**>infosbackup (nom)**, cooldown : 2min/user.
 **>renamebackup (nom) "(nouveau nom)"**, cooldown : 2 en 3min/user.
 **>deletebackup (nom)**, cooldown : 2 en 3min/user.
-**>roleslist (nom)**, cooldown : 2min/user.
-**>channelslist (nom)**, cooldown : 2min/user.
-**>emoteslist (nom)**, cooldown : 2min/user.
-**>emoteinfo (nom)**, cooldown : 10 en 5min/user.
-**>roleinfo (nom) (nom rôle)**, cooldown : 10 en 5min/user.
-**>textinfo & >vocinfo (nom) (nom salon)**, cooldown : 10 en 5min/user.
+**>listroles (nom)**, cooldown : 2min/user.
+**>listchannels (nom)**, cooldown : 2min/user.
+**>listemotes (nom)**, cooldown : 2min/user.
+**>infoemote (nom)**, cooldown : 10 en 5min/user.
+**>inforole (nom) (nom rôle)**, cooldown : 10 en 5min/user.
+**>infotext & >infovoc (nom) (nom salon)**, cooldown : 10 en 5min/user.
 **>loadbackup (nom)** **Attention, cela écrase le serveur.** Permissions : Administrateur. Cooldown : 5min/serveur.
 **>loadroles (nom)** : Charge les rôles de la sauvegarde indiquée. Permissions : Administrateur. Cooldown : 5min/serveur.
 **>loadchannels (nom)** : Charge les salons de la sauvegarde indiquée. Permissions : Administrateur. Cooldown : 5min/serveur.
@@ -904,7 +900,7 @@ async def stop(ctx):
 
 @bot.command()
 @commands.cooldown(1, 2 * 60, type=commands.BucketType.user)
-async def emoteslist(ctx, backup_name):
+async def listemotes(ctx, backup_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -953,7 +949,7 @@ async def emoteslist(ctx, backup_name):
 
 @bot.command()
 @commands.cooldown(1, 2 * 60, type=commands.BucketType.user)
-async def roleslist(ctx, backup_name):
+async def listroles(ctx, backup_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -1003,7 +999,7 @@ async def roleslist(ctx, backup_name):
 
 @bot.command()
 @commands.cooldown(10, 5 * 60, type=commands.BucketType.user)
-async def roleinfo(ctx, backup_name, role_name):
+async def inforole(ctx, backup_name, role_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -1076,7 +1072,7 @@ async def roleinfo(ctx, backup_name, role_name):
 
 @bot.command()
 @commands.cooldown(10, 5 * 60, type=commands.BucketType.user)
-async def vocinfo(ctx, backup_name, voc_name):
+async def infovoc(ctx, backup_name, voc_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -1111,7 +1107,7 @@ async def vocinfo(ctx, backup_name, voc_name):
 
 @bot.command()
 @commands.cooldown(10, 5 * 60, type=commands.BucketType.user)
-async def textinfo(ctx, backup_name, text_name):
+async def infotext(ctx, backup_name, text_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -1147,7 +1143,7 @@ async def textinfo(ctx, backup_name, text_name):
 
 @bot.command()
 @commands.cooldown(10, 5 * 60, type=commands.BucketType.user)
-async def emoteinfo(ctx, backup_name, emoji_name):
+async def infoemote(ctx, backup_name, emoji_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -1171,7 +1167,7 @@ async def emoteinfo(ctx, backup_name, emoji_name):
 
 @bot.command()
 @commands.cooldown(1, 2 * 60, type=commands.BucketType.user)
-async def channelslist(ctx, backup_name):
+async def listchannels(ctx, backup_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -1260,7 +1256,7 @@ async def channelslist(ctx, backup_name):
 
 @bot.command()
 @commands.cooldown(1, 2 * 60, type=commands.BucketType.user)
-async def backupinfos(ctx, backup_name):
+async def infosbackup(ctx, backup_name):
     path = "./backups/{}/".format(str(ctx.author.id))
 
     g = get_backup_dict(join(path, backup_name + ".json"))
@@ -1276,33 +1272,24 @@ async def backupinfos(ctx, backup_name):
                           color=0x008080)
     embed.set_thumbnail(url=g["icon"])
     embed.add_field(name="Caractéristiques",
-                    value="""
-💬 Salons textuels : {}
-🔊 Salons vocaux : {}
-🚩 Rôles : {}
-:slight_smile: Emojis : {}
-:no_entry: Bannissements : {}
-:man: Membres : {}
-                    """.format(
-                        str(len(g["text_channels"])),
-                        str(len(g["voice_channels"])),
-                        str(len(g["roles"])),
-                        str(len(g["emojis"])),
-                        str(len(g["bans"])),
-                        str(len(g["members"]))),
-                    inline=True)
-    embed.add_field(name="Paramètres", value="""
-AFK : `{} ({})`
-System channel : `{}`
-Niveau de vérification : `{}`
-Notifications : `{}`
-Filtre de contenu explicit : `{}`
-2FA pour les modérateurs : `{}`
-    """.format(g["afk_channel"],
-               str(int(g["afk_timeout"] / 60)) + "min" if g["afk_timeout"] != 3600 else "1h", g["system_channel"],
-               verification_level[g["verification_level"]],
-               "Tous les messages" if g["default_notifications"] == "all_messages" else "@mentions seulement",
-               explicit_content_filter[g["explicit_content_filter"]], ['Désactivé', 'Activé'][g["mfa_level"]]), inline=True)
+                    value=f"""
+:speech_balloon: Salons textuels : {len(g["text_channels"])}
+:loud_sound: Salons vocaux : {len(g["voice_channels"])}
+:diamond_shape_with_a_dot_inside: Catégories : {len(g["categories"])}
+:triangular_flag_on_post: Rôles : {len(g["roles"])}
+:slight_smile: Emojis : {len(g["emojis"])}
+:no_entry: Bannissements : {len(g["bans"])}
+:man: Membres : {len(g["members"])}
+                    """, inline=True)
+    
+    embed.add_field(name="Paramètres", value=f"""
+:alarm_clock: AFK : `{g["afk_channel"]} ({str(int(g["afk_timeout"] / 60)) + "min" if g["afk_timeout"] != 3600 else "1h"})`
+:gear: System channel : `{g["system_channel"]}`
+:shield: Niveau de vérification : `{verification_level[g["verification_level"]]}`
+:bell: Notifications : `{"Tous les messages" if g["default_notifications"] == "all_messages" else "@mentions seulement"}`
+:scales: Filtre de contenu explicit : `{explicit_content_filter[g["explicit_content_filter"]]}`
+:closed_lock_with_key: 2FA pour les modérateurs : `{['Désactivé', 'Activé'][g["mfa_level"]]}`
+    """, inline=True)
     await ctx.send(embed=embed)
 
 
@@ -1319,7 +1306,7 @@ async def loadbackup(ctx, backup_name):
     if bRole is None:
         await ctx.message.delete()
         embed = discord.Embed(title="⚠️ Le rôle du bot n'a pas été trouvé !",
-                              description="Merci de le renommer en `GuildEdit PRO`.", color=0xe0db01)
+                              description=f"Merci de le renommer en `{bot.user.name}`.", color=0xe0db01)
         response = await ctx.send(embed=embed)
         await asyncio.sleep(5)
         await response.delete()
@@ -1447,7 +1434,7 @@ async def loadroles(ctx, backup_name):
     if bRole is None:
         await ctx.message.delete()
         embed = discord.Embed(title="⚠️ Le rôle du bot n'a pas été trouvé !",
-                              description="Merci de le renommer en `GuildEdit PRO`.", color=0xe0db01)
+                              description=f"Merci de le renommer en `{bot.user.name}`.", color=0xe0db01)
         response = await ctx.send(embed=embed)
         await asyncio.sleep(5)
         await response.delete()
@@ -1826,14 +1813,15 @@ async def createbackup(ctx):
         await ctx.send(":x: Délai d'atente dépassé, veuillez retaper la commande.")
         return
 
+    filename = get_filename(ctx.guild.id)
     try:
-        await create_backup("{}{}.json".format(path, get_filename(ctx.guild.id)), ctx.guild)
+        await create_backup("{}{}.json".format(path, filename), ctx.guild)
     except Exception as e:
         await ctx.send(embed=embed_error(str(e)))
         return
 
     await confirm.clear_reactions()
-    embed = discord.Embed(title="\U00002705 Voilà !", description="Votre sauvegarde a été créée avec succès.",
+    embed = discord.Embed(title="\U00002705 Voilà !", description=f"Votre sauvegarde a été créée avec succès sous le nom `{filename}`.",
                           color=0x008040)
     await confirm.edit(embed=embed)
 
@@ -1885,7 +1873,7 @@ async def updatebackup(ctx, backup_name):
 
 @bot.command()
 @commands.cooldown(1, 2 * 60, type=commands.BucketType.user)
-async def backuplist(ctx):
+async def listbackup(ctx):
     path = "./backups/{}/".format(str(ctx.author.id))
     if not exists(path):
         await ctx.send(embed=embed_error("Aucune sauvegarde disponible.", True))
